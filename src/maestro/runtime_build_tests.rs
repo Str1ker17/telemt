@@ -74,6 +74,19 @@ fn process_socket_and_logging_changes_are_deferred() {
 }
 
 #[test]
+fn socket_buffer_bytes_change_applies_to_runtime_generation() {
+    let old = ProxyConfig::default();
+    let mut desired = old.clone();
+    desired.server.socket_buffer_bytes = 256 * 1024;
+
+    let resolved = resolve_reload_config(&old, &desired).unwrap();
+
+    assert!(resolved.deferred_process_fields.is_empty());
+    assert_eq!(resolved.effective.server.socket_buffer_bytes, 256 * 1024);
+    assert!(resolved.runtime_changed);
+}
+
+#[test]
 fn global_mss_profiles_are_deferred_with_the_listener_socket_group() {
     let old = ProxyConfig::default();
     let mut desired = old.clone();

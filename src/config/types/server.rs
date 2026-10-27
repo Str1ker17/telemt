@@ -303,6 +303,11 @@ pub struct ServerConfig {
     #[serde(default = "default_accept_permit_timeout_ms")]
     pub accept_permit_timeout_ms: u64,
 
+    /// SO_RCVBUF/SO_SNDBUF size in bytes for client, mask backend and upstream TCP sockets.
+    /// `0` keeps kernel defaults and Linux TCP buffer autotuning.
+    #[serde(default = "default_socket_buffer_bytes")]
+    pub socket_buffer_bytes: usize,
+
     /// Runtime conntrack control and pressure policy.
     #[serde(default)]
     pub conntrack_control: ConntrackControlConfig,
@@ -330,6 +335,7 @@ impl Default for ServerConfig {
             listen_backlog: default_listen_backlog(),
             max_connections: default_server_max_connections(),
             accept_permit_timeout_ms: default_accept_permit_timeout_ms(),
+            socket_buffer_bytes: default_socket_buffer_bytes(),
             conntrack_control: ConntrackControlConfig::default(),
         }
     }

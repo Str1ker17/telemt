@@ -1937,6 +1937,7 @@ This document lists all configuration keys accepted by `config.toml`.
 | [`listeners`](#serverlisteners) | `Table[]` | derived from legacy listener fields | `✘` |
 | [`max_connections`](#max_connections) | `u32` | `10000` | `✘` |
 | [`accept_permit_timeout_ms`](#accept_permit_timeout_ms) | `u64` | `250` | `✘` |
+| [`socket_buffer_bytes`](#socket_buffer_bytes) | `usize` | `0` | `✘` |
 | [`listen_backlog`](#listen_backlog) | `u32` | `1024` | `✘` |
 | [`conntrack_control`](#serverconntrack_control) | `Table` | built-in defaults | `✘` |
 
@@ -2106,6 +2107,15 @@ This document lists all configuration keys accepted by `config.toml`.
     ```toml
     [server]
     accept_permit_timeout_ms = 250
+    ```
+## socket_buffer_bytes
+  - **Constraints / validation**: `0`, or within `4096..=2147483647` (bytes).
+  - **Description**: `SO_RCVBUF` and `SO_SNDBUF` size that Telemt sets on accepted client TCP sockets, mask backend TCP sockets, and outgoing upstream TCP sockets. The kernel caps the value at `net.core.rmem_max` / `net.core.wmem_max`. On Linux, an explicit size disables TCP buffer autotuning for the socket, so per-connection throughput is limited to about buffer size / RTT. `0` (default) does not set these options and leaves buffer sizing to the kernel (autotuning within `net.ipv4.tcp_rmem` / `net.ipv4.tcp_wmem`). `262144` restores the fixed buffers used by earlier releases. A changed value applies to new connections after a runtime-generation reload; existing connections keep their buffers.
+  - **Example**:
+
+    ```toml
+    [server]
+    socket_buffer_bytes = 262144
     ```
 
 

@@ -16,14 +16,13 @@ mod fragmented_send;
 #[cfg(target_os = "linux")]
 pub(crate) use fragmented_send::send_tcp_fragmented_fd;
 
-const DEFAULT_SOCKET_BUFFER_BYTES: usize = 256 * 1024;
-
 /// Configure TCP socket with recommended settings for proxy use
 #[allow(dead_code)]
 pub fn configure_tcp_socket(
     stream: &TcpStream,
     keepalive: bool,
     keepalive_interval: Duration,
+    socket_buffer_bytes: usize,
 ) -> Result<()> {
     let socket = socket2::SockRef::from(stream);
 
@@ -41,9 +40,11 @@ pub fn configure_tcp_socket(
         socket.set_tcp_keepalive(&keepalive)?;
     }
 
-    // Use explicit baseline buffers to reduce slow-start stalls on high RTT links.
-    socket.set_recv_buffer_size(DEFAULT_SOCKET_BUFFER_BYTES)?;
-    socket.set_send_buffer_size(DEFAULT_SOCKET_BUFFER_BYTES)?;
+    // Explicit buffers disable Linux TCP autotuning; zero keeps kernel defaults.
+    if socket_buffer_bytes != 0 {
+        socket.set_recv_buffer_size(socket_buffer_bytes)?;
+        socket.set_send_buffer_size(socket_buffer_bytes)?;
+    }
 
     Ok(())
 }
@@ -53,6 +54,7 @@ pub fn configure_client_socket(
     stream: &TcpStream,
     keepalive_secs: u64,
     #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] ack_timeout_secs: u64,
+    socket_buffer_bytes: usize,
 ) -> Result<()> {
     let socket = socket2::SockRef::from(stream);
 
@@ -67,9 +69,11 @@ pub fn configure_client_socket(
 
     socket.set_tcp_keepalive(&keepalive)?;
 
-    // Keep explicit baseline buffers for predictable throughput across busy hosts.
-    socket.set_recv_buffer_size(DEFAULT_SOCKET_BUFFER_BYTES)?;
-    socket.set_send_buffer_size(DEFAULT_SOCKET_BUFFER_BYTES)?;
+    // Explicit buffers disable Linux TCP autotuning; zero keeps kernel defaults.
+    if socket_buffer_bytes != 0 {
+        socket.set_recv_buffer_size(socket_buffer_bytes)?;
+        socket.set_send_buffer_size(socket_buffer_bytes)?;
+    }
 
     // Set TCP user timeout (Linux only)
     // NOTE: iOS does not support TCP_USER_TIMEOUT - application-level timeout
@@ -133,11 +137,19 @@ pub fn clear_linger_fd(fd: std::os::unix::io::RawFd) -> Result<()> {
 /// Create a new TCP socket for outgoing connections
 #[allow(dead_code)]
 pub fn create_outgoing_socket(addr: SocketAddr) -> Result<Socket> {
-    create_outgoing_socket_bound(addr, None)
+    create_outgoing_socket_bound(
+        addr,
+        None,
+        crate::config::defaults::default_socket_buffer_bytes(),
+    )
 }
 
 /// Create a new TCP socket for outgoing connections, optionally bound to a specific interface
-pub fn create_outgoing_socket_bound(addr: SocketAddr, bind_addr: Option<IpAddr>) -> Result<Socket> {
+pub fn create_outgoing_socket_bound(
+    addr: SocketAddr,
+    bind_addr: Option<IpAddr>,
+    socket_buffer_bytes: usize,
+) -> Result<Socket> {
     let domain = if addr.is_ipv4() {
         Domain::IPV4
     } else {
@@ -151,8 +163,10 @@ pub fn create_outgoing_socket_bound(addr: SocketAddr, bind_addr: Option<IpAddr>)
 
     // Disable Nagle
     socket.set_tcp_nodelay(true)?;
-    socket.set_recv_buffer_size(DEFAULT_SOCKET_BUFFER_BYTES)?;
-    socket.set_send_buffer_size(DEFAULT_SOCKET_BUFFER_BYTES)?;
+    if socket_buffer_bytes != 0 {
+        socket.set_recv_buffer_size(socket_buffer_bytes)?;
+        socket.set_send_buffer_size(socket_buffer_bytes)?;
+    }
 
     if let Some(bind_ip) = bind_addr {
         let bind_sock_addr = SocketAddr::new(bind_ip, 0);

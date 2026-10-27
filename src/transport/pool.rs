@@ -50,6 +50,8 @@ pub struct PoolConfig {
     pub keepalive: bool,
     /// Keepalive interval
     pub keepalive_interval: Duration,
+    /// Socket buffer size in bytes, 0 keeps kernel defaults
+    pub socket_buffer_bytes: usize,
 }
 
 impl Default for PoolConfig {
@@ -60,6 +62,7 @@ impl Default for PoolConfig {
             max_idle_time: Duration::from_secs(60),
             keepalive: true,
             keepalive_interval: Duration::from_secs(40),
+            socket_buffer_bytes: crate::config::defaults::default_socket_buffer_bytes(),
         }
     }
 }
@@ -176,6 +179,7 @@ impl ConnectionPool {
             &stream,
             self.config.keepalive,
             self.config.keepalive_interval,
+            self.config.socket_buffer_bytes,
         )?;
 
         Ok(stream)

@@ -10,6 +10,7 @@ impl RunningClientHandler {
             &self.stream,
             self.config.timeouts.client_keepalive,
             self.config.timeouts.client_ack,
+            self.config.server.socket_buffer_bytes,
         ) {
             debug!(peer = %peer, error = %e, "Failed to configure client socket");
         }

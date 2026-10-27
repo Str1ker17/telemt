@@ -229,6 +229,61 @@ listen_backlog = 0
 }
 
 #[test]
+fn load_keeps_default_socket_buffer_bytes_when_omitted() {
+    let path = write_temp_config(
+        r#"
+[server]
+port = 443
+"#,
+    );
+
+    let cfg = ProxyConfig::load(&path).expect("config without socket_buffer_bytes must load");
+    assert_eq!(cfg.server.socket_buffer_bytes, 0);
+    assert_eq!(ProxyConfig::default().server.socket_buffer_bytes, 0);
+
+    remove_temp_config(&path);
+}
+
+#[test]
+fn load_accepts_zero_and_bounded_socket_buffer_bytes() {
+    for value in [0, 4096, i32::MAX as usize] {
+        let path = write_temp_config(&format!(
+            r#"
+[server]
+socket_buffer_bytes = {value}
+"#
+        ));
+
+        let cfg = ProxyConfig::load(&path).expect("socket_buffer_bytes within bounds must load");
+        assert_eq!(cfg.server.socket_buffer_bytes, value);
+
+        remove_temp_config(&path);
+    }
+}
+
+#[test]
+fn load_rejects_socket_buffer_bytes_outside_bounds() {
+    for value in [1, 4095, i32::MAX as usize + 1] {
+        let path = write_temp_config(&format!(
+            r#"
+[server]
+socket_buffer_bytes = {value}
+"#
+        ));
+
+        let err =
+            ProxyConfig::load(&path).expect_err("socket_buffer_bytes outside bounds must fail");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("server.socket_buffer_bytes must be 0 or within [4096, 2147483647]"),
+            "error must explain socket_buffer_bytes bounds, got: {msg}"
+        );
+
+        remove_temp_config(&path);
+    }
+}
+
+#[test]
 fn load_accepts_memory_limits_at_hard_upper_bounds() {
     let path = write_temp_config(
         r#"

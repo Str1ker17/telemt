@@ -209,7 +209,7 @@ pub(in crate::proxy) async fn handle_bad_client_with_shared_resolver<R, W>(
     .await;
     match connect_result {
         Ok(Ok(stream)) => {
-            configure_mask_backend_socket(&stream);
+            configure_mask_backend_socket(&stream, config.server.socket_buffer_bytes);
             let proxy_header =
                 build_mask_proxy_header(config.censorship.mask_proxy_protocol, peer, local_addr);
 

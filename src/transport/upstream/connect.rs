@@ -165,7 +165,8 @@ impl UpstreamManager {
                     )));
                 }
 
-                let socket = create_outgoing_socket_bound(target, bind_ip)?;
+                let socket =
+                    create_outgoing_socket_bound(target, bind_ip, self.socket_buffer_bytes)?;
                 if let Some(device) = bindtodevice.as_deref().filter(|value| !value.is_empty()) {
                     bind_outgoing_socket_to_device(&socket, device).map_err(ProxyError::Io)?;
                     debug!(bindtodevice = %device, target = %target, "Pinned socket to interface");
@@ -230,7 +231,11 @@ impl UpstreamManager {
                         false,
                     );
 
-                    let socket = create_outgoing_socket_bound(proxy_addr, bind_ip)?;
+                    let socket = create_outgoing_socket_bound(
+                        proxy_addr,
+                        bind_ip,
+                        self.socket_buffer_bytes,
+                    )?;
 
                     socket.set_nonblocking(true)?;
                     match socket.connect(&proxy_addr.into()) {
@@ -319,7 +324,11 @@ impl UpstreamManager {
                         false,
                     );
 
-                    let socket = create_outgoing_socket_bound(proxy_addr, bind_ip)?;
+                    let socket = create_outgoing_socket_bound(
+                        proxy_addr,
+                        bind_ip,
+                        self.socket_buffer_bytes,
+                    )?;
 
                     socket.set_nonblocking(true)?;
                     match socket.connect(&proxy_addr.into()) {

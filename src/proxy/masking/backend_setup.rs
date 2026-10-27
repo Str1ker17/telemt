@@ -33,8 +33,9 @@ pub(super) fn build_mask_proxy_header(
     }
 }
 
-pub(super) fn configure_mask_backend_socket(stream: &TcpStream) {
-    if let Err(e) = configure_tcp_socket(stream, false, Duration::from_secs(0)) {
+pub(super) fn configure_mask_backend_socket(stream: &TcpStream, socket_buffer_bytes: usize) {
+    if let Err(e) = configure_tcp_socket(stream, false, Duration::from_secs(0), socket_buffer_bytes)
+    {
         debug!(error = %e, "Failed to configure mask backend socket");
     }
 }

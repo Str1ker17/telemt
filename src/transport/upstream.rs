@@ -331,6 +331,7 @@ pub struct UpstreamManager {
     tg_connect_timeout_secs: u64,
     unhealthy_fail_threshold: u32,
     connect_failfast_hard_errors: bool,
+    socket_buffer_bytes: usize,
     no_upstreams_warn_epoch_ms: Arc<AtomicU64>,
     no_healthy_warn_epoch_ms: Arc<AtomicU64>,
     stats: Arc<Stats>,

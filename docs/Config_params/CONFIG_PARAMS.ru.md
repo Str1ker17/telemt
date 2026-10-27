@@ -1939,6 +1939,7 @@
 | [`listeners`](#serverlisteners) | `Table[]` | выводится из legacy listener-полей | `✘` |
 | [`max_connections`](#max_connections) | `u32` | `10000` | `✘` |
 | [`accept_permit_timeout_ms`](#accept_permit_timeout_ms) | `u64` | `250` | `✘` |
+| [`socket_buffer_bytes`](#socket_buffer_bytes) | `usize` | `0` | `✘` |
 | [`listen_backlog`](#listen_backlog) | `u32` | `1024` | `✘` |
 | [`conntrack_control`](#serverconntrack_control) | `Table` | встроенные значения | `✘` |
 
@@ -2107,6 +2108,15 @@
     ```toml
     [server]
     accept_permit_timeout_ms = 250
+    ```
+## socket_buffer_bytes
+  - **Ограничения / валидация**: `0` либо значение в диапазоне `4096..=2147483647` (байт).
+  - **Описание**: Размер `SO_RCVBUF` и `SO_SNDBUF`, который Telemt выставляет на принятых клиентских TCP-сокетах, TCP-сокетах к mask backend и исходящих TCP-сокетах к upstream. Ядро ограничивает значение величиной `net.core.rmem_max` / `net.core.wmem_max`. В Linux явно заданный размер отключает автонастройку TCP-буферов для сокета, поэтому пропускная способность одного соединения ограничена примерно размером буфера / RTT. `0` (по умолчанию) не выставляет эти опции и оставляет размер буферов ядру (автонастройка в пределах `net.ipv4.tcp_rmem` / `net.ipv4.tcp_wmem`). `262144` возвращает фиксированные буферы прежних версий. Новое значение применяется к новым соединениям после reload runtime generation; существующие соединения сохраняют свои буферы.
+  - **Пример**:
+
+    ```toml
+    [server]
+    socket_buffer_bytes = 262144
     ```
 
 

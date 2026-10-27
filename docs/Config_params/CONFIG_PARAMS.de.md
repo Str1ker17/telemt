@@ -1937,6 +1937,7 @@ Dieses Dokument listet alle Konfigurationsschlüssel auf, die `config.toml` akze
 | [`listeners`](#serverlisteners) | `Table[]` | abgeleitet von Legacy-Listener-Feldern | `✘` |
 | [`max_connections`](#max_connections) | `u32` | `10000` | `✘` |
 | [`accept_permit_timeout_ms`](#accept_permit_timeout_ms) | `u64` | `250` | `✘` |
+| [`socket_buffer_bytes`](#socket_buffer_bytes) | `usize` | `0` | `✘` |
 | [`listen_backlog`](#listen_backlog) | `u32` | `1024` | `✘` |
 | [`conntrack_control`](#serverconntrack_control) | `Table` | integrierte Standardeinstellungen | `✘` |
 
@@ -2106,6 +2107,15 @@ Dieses Dokument listet alle Konfigurationsschlüssel auf, die `config.toml` akze
     ```toml
     [server]
     accept_permit_timeout_ms = 250
+    ```
+## socket_buffer_bytes
+  - **Einschränkungen / Validierung**: `0` oder innerhalb von `4096..=2147483647` (Bytes).
+  - **Beschreibung**: Größe von `SO_RCVBUF` und `SO_SNDBUF`, die Telemt für akzeptierte Client-TCP-Sockets, TCP-Sockets zum Mask-Backend und ausgehende Upstream-TCP-Sockets setzt. Der Kernel begrenzt den Wert auf `net.core.rmem_max` / `net.core.wmem_max`. Unter Linux deaktiviert eine explizite Größe das TCP-Buffer-Autotuning für den Socket, sodass der Durchsatz pro Verbindung auf etwa Puffergröße / RTT begrenzt ist. `0` (Standard) setzt diese Optionen nicht und überlässt die Puffergröße dem Kernel (Autotuning innerhalb von `net.ipv4.tcp_rmem` / `net.ipv4.tcp_wmem`). `262144` stellt die festen Puffer früherer Versionen wieder her. Ein geänderter Wert gilt nach einem Runtime-Generation-Reload für neue Verbindungen; bestehende Verbindungen behalten ihre Puffer.
+  - **Beispiel**:
+
+    ```toml
+    [server]
+    socket_buffer_bytes = 262144
     ```
 
 

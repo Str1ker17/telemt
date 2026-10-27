@@ -244,6 +244,10 @@ pub(crate) fn default_accept_permit_timeout_ms() -> u64 {
     DEFAULT_ACCEPT_PERMIT_TIMEOUT_MS
 }
 
+pub(crate) fn default_socket_buffer_bytes() -> usize {
+    0
+}
+
 /// Keeps privileged conntrack control disabled unless explicitly requested.
 pub(crate) fn default_conntrack_control_enabled() -> bool {
     DEFAULT_CONNTRACK_CONTROL_ENABLED

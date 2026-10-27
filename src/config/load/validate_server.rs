@@ -115,6 +115,15 @@ pub(super) fn validate(config: &mut ProxyConfig) -> Result<()> {
         ));
     }
 
+    if config.server.socket_buffer_bytes != 0
+        && !(4096..=i32::MAX as usize).contains(&config.server.socket_buffer_bytes)
+    {
+        return Err(ProxyError::Config(format!(
+            "server.socket_buffer_bytes must be 0 or within [4096, {}]",
+            i32::MAX
+        )));
+    }
+
     if config.server.conntrack_control.pressure_high_watermark_pct == 0
         || config.server.conntrack_control.pressure_high_watermark_pct > 100
     {

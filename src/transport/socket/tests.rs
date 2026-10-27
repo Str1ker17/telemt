@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::defaults::default_socket_buffer_bytes;
 use std::io::ErrorKind;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -17,7 +18,12 @@ async fn test_configure_socket() {
         Err(e) if e.kind() == ErrorKind::PermissionDenied => return,
         Err(e) => panic!("connect failed: {e}"),
     };
-    if let Err(e) = configure_tcp_socket(&stream, true, Duration::from_secs(30)) {
+    if let Err(e) = configure_tcp_socket(
+        &stream,
+        true,
+        Duration::from_secs(30),
+        default_socket_buffer_bytes(),
+    ) {
         if e.kind() == ErrorKind::PermissionDenied {
             return;
         }
@@ -43,7 +49,7 @@ async fn test_configure_client_socket() {
         Err(e) => panic!("connect failed: {e}"),
     };
 
-    if let Err(e) = configure_client_socket(&stream, 30, 30) {
+    if let Err(e) = configure_client_socket(&stream, 30, 30, default_socket_buffer_bytes()) {
         if e.kind() == ErrorKind::PermissionDenied {
             return;
         }
@@ -69,7 +75,7 @@ async fn test_configure_client_socket_zero_ack_timeout() {
         Err(e) => panic!("connect failed: {e}"),
     };
 
-    if let Err(e) = configure_client_socket(&stream, 30, 0) {
+    if let Err(e) = configure_client_socket(&stream, 30, 0, default_socket_buffer_bytes()) {
         if e.kind() == ErrorKind::PermissionDenied {
             return;
         }
@@ -110,7 +116,7 @@ async fn test_configure_client_socket_roundtrip_io() {
         Err(e) => panic!("connect failed: {e}"),
     };
 
-    if let Err(e) = configure_client_socket(&stream, 30, 30) {
+    if let Err(e) = configure_client_socket(&stream, 30, 30, default_socket_buffer_bytes()) {
         if e.kind() == ErrorKind::PermissionDenied {
             return;
         }
@@ -154,11 +160,77 @@ async fn test_configure_client_socket_ack_timeout_overflow_rejected() {
     };
 
     let too_large_secs = (i32::MAX as u64 / 1000) + 1;
-    let err = match configure_client_socket(&stream, 30, too_large_secs) {
-        Ok(()) => panic!("expected overflow validation error"),
-        Err(e) => e,
-    };
+    let err =
+        match configure_client_socket(&stream, 30, too_large_secs, default_socket_buffer_bytes()) {
+            Ok(()) => panic!("expected overflow validation error"),
+            Err(e) => e,
+        };
     assert_eq!(err.kind(), ErrorKind::InvalidInput);
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn test_zero_socket_buffer_bytes_keeps_kernel_buffers() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let stream = TcpStream::connect(addr).await.unwrap();
+    let socket = socket2::SockRef::from(&stream);
+    let recv_before = socket.recv_buffer_size().unwrap();
+    let send_before = socket.send_buffer_size().unwrap();
+
+    configure_client_socket(&stream, 30, 30, 0).unwrap();
+    configure_tcp_socket(&stream, true, Duration::from_secs(30), 0).unwrap();
+
+    assert_eq!(socket.recv_buffer_size().unwrap(), recv_before);
+    assert_eq!(socket.send_buffer_size().unwrap(), send_before);
+
+    let fresh = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).unwrap();
+    let outgoing = create_outgoing_socket_bound(addr, None, 0).unwrap();
+    assert_eq!(
+        outgoing.recv_buffer_size().unwrap(),
+        fresh.recv_buffer_size().unwrap()
+    );
+    assert_eq!(
+        outgoing.send_buffer_size().unwrap(),
+        fresh.send_buffer_size().unwrap()
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn test_nonzero_socket_buffer_bytes_sets_kernel_buffers() {
+    let socket_buffer_bytes = 64 * 1024;
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let client_stream = TcpStream::connect(addr).await.unwrap();
+    let backend_stream = TcpStream::connect(addr).await.unwrap();
+
+    configure_client_socket(&client_stream, 30, 30, socket_buffer_bytes).unwrap();
+    configure_tcp_socket(
+        &backend_stream,
+        false,
+        Duration::from_secs(0),
+        socket_buffer_bytes,
+    )
+    .unwrap();
+    let outgoing = create_outgoing_socket_bound(addr, None, socket_buffer_bytes).unwrap();
+
+    for socket in [
+        socket2::SockRef::from(&client_stream),
+        socket2::SockRef::from(&backend_stream),
+        socket2::SockRef::from(&outgoing),
+    ] {
+        assert_eq!(
+            socket.recv_buffer_size().unwrap(),
+            2 * socket_buffer_bytes,
+            "Linux reports SO_RCVBUF doubled for bookkeeping overhead"
+        );
+        assert_eq!(
+            socket.send_buffer_size().unwrap(),
+            2 * socket_buffer_bytes,
+            "Linux reports SO_SNDBUF doubled for bookkeeping overhead"
+        );
+    }
 }
 
 #[test]

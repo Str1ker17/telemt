@@ -36,6 +36,7 @@ impl UpstreamManager {
             tg_connect_timeout_secs: tg_connect_timeout_secs.max(1),
             unhealthy_fail_threshold: unhealthy_fail_threshold.max(1),
             connect_failfast_hard_errors,
+            socket_buffer_bytes: crate::config::defaults::default_socket_buffer_bytes(),
             no_upstreams_warn_epoch_ms: Arc::new(AtomicU64::new(0)),
             no_healthy_warn_epoch_ms: Arc::new(AtomicU64::new(0)),
             stats,
@@ -46,6 +47,11 @@ impl UpstreamManager {
     pub(crate) fn with_dns_overrides(self, entries: &[String]) -> Result<Self> {
         self.dns_resolver.apply_entries(entries)?;
         Ok(self)
+    }
+
+    pub(crate) fn with_socket_buffer_bytes(mut self, socket_buffer_bytes: usize) -> Self {
+        self.socket_buffer_bytes = socket_buffer_bytes;
+        self
     }
 
     pub(crate) fn update_dns_overrides(&self, entries: &[String]) -> Result<()> {
